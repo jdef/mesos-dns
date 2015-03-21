@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -231,10 +232,12 @@ func (res *Resolver) HandleMesos(w dns.ResponseWriter, r *dns.Msg) {
 	m.RecursionAvailable = true
 	m.SetReply(r)
 
+	rs := res.records()
+
 	switch qType {
 	case dns.TypeSRV:
-		for i := 0; i < len(res.rs.SRVs[dom]); i++ {
-			rr, err := res.formatSRV(r.Question[0].Name, res.rs.SRVs[dom][i])
+		for i := 0; i < len(rs.SRVs[dom]); i++ {
+			rr, err := res.formatSRV(r.Question[0].Name, rs.SRVs[dom][i])
 			if err != nil {
 				logging.Error.Println(err)
 			} else {
@@ -242,8 +245,8 @@ func (res *Resolver) HandleMesos(w dns.ResponseWriter, r *dns.Msg) {
 			}
 		}
 	case dns.TypeA:
-		for i := 0; i < len(res.rs.As[dom]); i++ {
-			rr, err := res.formatA(dom, res.rs.As[dom][i])
+		for i := 0; i < len(rs.As[dom]); i++ {
+			rr, err := res.formatA(dom, rs.As[dom][i])
 			if err != nil {
 				logging.Error.Println(err)
 			} else {
@@ -253,8 +256,8 @@ func (res *Resolver) HandleMesos(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	case dns.TypeANY:
 		// refactor me
-		for i := 0; i < len(res.rs.As[dom]); i++ {
-			rr, err := res.formatA(r.Question[0].Name, res.rs.As[dom][i])
+		for i := 0; i < len(rs.As[dom]); i++ {
+			rr, err := res.formatA(r.Question[0].Name, rs.As[dom][i])
 			if err != nil {
 				logging.Error.Println(err)
 			} else {
@@ -262,8 +265,8 @@ func (res *Resolver) HandleMesos(w dns.ResponseWriter, r *dns.Msg) {
 			}
 		}
 
-		for i := 0; i < len(res.rs.SRVs[dom]); i++ {
-			rr, err := res.formatSRV(dom, res.rs.SRVs[dom][i])
+		for i := 0; i < len(rs.SRVs[dom]); i++ {
+			rr, err := res.formatSRV(dom, rs.SRVs[dom][i])
 			if err != nil {
 				logging.Error.Println(err)
 			} else {
@@ -293,7 +296,7 @@ func (res *Resolver) HandleMesos(w dns.ResponseWriter, r *dns.Msg) {
 
 	if err != nil {
 		logging.CurLog.MesosFailed += 1
-	} else if (qType == dns.TypeAAAA) && (len(res.rs.SRVs[dom]) > 0 || len(res.rs.As[dom]) > 0) {
+	} else if (qType == dns.TypeAAAA) && (len(rs.SRVs[dom]) > 0 || len(rs.As[dom]) > 0) {
 
 		m = new(dns.Msg)
 		m.Authoritative = true
@@ -320,7 +323,7 @@ func (res *Resolver) HandleMesos(w dns.ResponseWriter, r *dns.Msg) {
 			}
 
 			logging.CurLog.MesosNXDomain += 1
-			logging.VeryVerbose.Println("total A rrs:\t" + strconv.Itoa(len(res.rs.As)))
+			logging.VeryVerbose.Println("total A rrs:\t" + strconv.Itoa(len(rs.As)))
 			logging.VeryVerbose.Println("failed looking for " + r.Question[0].String())
 		} else {
 			logging.CurLog.MesosSuccess += 1
@@ -361,8 +364,15 @@ func (res *Resolver) Serve(net string) {
 // Resolver holds configuration information and the resource records
 // refactor me
 type Resolver struct {
-	rs     records.RecordGenerator
+	sync.Mutex
+	rs     *records.RecordGenerator
 	Config records.Config
+}
+
+func (res *Resolver) records() *records.RecordGenerator {
+	res.Lock()
+	defer res.Unlock()
+	return res.rs
 }
 
 // Reload triggers a new refresh from mesos master
@@ -370,5 +380,7 @@ func (res *Resolver) Reload() {
 	t := records.RecordGenerator{}
 	t.ParseState(res.Config)
 
-	res.rs = t
+	res.Lock()
+	defer res.Unlock()
+	res.rs = &t
 }
