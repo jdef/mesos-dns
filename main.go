@@ -34,6 +34,22 @@ func main() {
 	logging.SetupLogs()
 
 	resolver.Config = records.SetConfig(*cjson)
+	for name := range resolver.Config.Plugins {
+		plugin, err := records.NewPlugin(name, &resolver.Config)
+		if err != nil {
+			logging.Error.Printf("failed to create plugin: %v", err)
+			continue
+		}
+		logging.Verbose.Printf("starting plugin %q", name)
+		plugin.Start()
+		wg.Add(1)
+		go func() {
+			select {
+			case <-plugin.Done():
+				wg.Done()
+			}
+		}()
+	}
 
 	// reload the first time
 	resolver.Reload()

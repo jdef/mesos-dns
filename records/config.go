@@ -49,6 +49,9 @@ type Config struct {
 
 	// ListenAddr is the server listener address
 	Listener string
+
+	// allow plugins to consume their own JSON configuration
+	Plugins map[string]json.RawMessage
 }
 
 // SetConfig instantiates a Config struct read in from config.json
