@@ -83,7 +83,11 @@ func SetConfig(cjson string) (c Config) {
 		os.Exit(1)
 	}
 
-	err = json.Unmarshal(b, &c)
+	return ParseConfig(b, c)
+}
+
+func ParseConfig(actualjson []byte, c Config) Config {
+	err := json.Unmarshal(actualjson, &c)
 	if err != nil {
 		logging.Error.Println(err)
 	}
