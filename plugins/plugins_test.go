@@ -8,7 +8,6 @@ import (
 
 	"github.com/mesosphere/mesos-dns/logging"
 	"github.com/mesosphere/mesos-dns/records"
-	"github.com/mesosphere/mesos-dns/resolver"
 )
 
 type FakePluginConfig struct {
@@ -17,23 +16,23 @@ type FakePluginConfig struct {
 
 type fakePlugin struct {
 	FakePluginConfig
-	startFunc func(*resolver.Resolver)
-	stopFunc  func(*resolver.Resolver)
+	startFunc func(Context)
+	stopFunc  func()
 	done      chan struct{}
 	doneOnce  sync.Once
 }
 
-func (p *fakePlugin) Start(r *resolver.Resolver) {
+func (p *fakePlugin) Start(ctx Context) {
 	if p.startFunc != nil {
-		p.startFunc(r)
+		p.startFunc(ctx)
 	}
 }
 
-func (p *fakePlugin) Stop(r *resolver.Resolver) {
+func (p *fakePlugin) Stop() {
 	p.doneOnce.Do(func() {
 		close(p.done)
 		if p.stopFunc != nil {
-			p.stopFunc(r)
+			p.stopFunc()
 		}
 	})
 }
@@ -54,7 +53,7 @@ func TestPluginConfig(t *testing.T) {
 		return &fakePlugin{
 			FakePluginConfig: c,
 			done:             make(chan struct{}),
-			startFunc: func(r *resolver.Resolver) {
+			startFunc: func(ctx Context) {
 				foo = c.Foo
 			},
 		}, nil
