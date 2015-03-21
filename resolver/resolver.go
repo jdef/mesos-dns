@@ -361,12 +361,23 @@ func (res *Resolver) Serve(net string) {
 	os.Exit(1)
 }
 
+type Reloader func(*records.RecordGenerator) *records.RecordGenerator
+
 // Resolver holds configuration information and the resource records
 // refactor me
 type Resolver struct {
 	sync.Mutex
-	rs     *records.RecordGenerator
-	Config records.Config
+	rs        *records.RecordGenerator
+	Config    records.Config
+	reloaders []Reloader
+}
+
+// execute a Reloader func at Reload time. should only be invoked during
+// bootstrapping (before processing begins) since this is not "thread-safe".
+func (res *Resolver) OnReload(r Reloader) {
+	if r != nil {
+		res.reloaders = append(res.reloaders, r)
+	}
 }
 
 func (res *Resolver) records() *records.RecordGenerator {
@@ -380,7 +391,12 @@ func (res *Resolver) Reload() {
 	t := records.RecordGenerator{}
 	t.ParseState(res.Config)
 
+	state := &t
+	for _, r := range res.reloaders {
+		state = r(state)
+	}
+
 	res.Lock()
 	defer res.Unlock()
-	res.rs = &t
+	res.rs = state
 }

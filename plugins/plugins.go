@@ -1,61 +1,59 @@
-package records
+package plugins
 
 import (
 	"encoding/json"
 	"fmt"
 	"sync"
+
+	"github.com/mesosphere/mesos-dns/resolver"
 )
 
 // a plugin has a single use lifecycle: once started, it may be stopped. once stopped,
 // it may not be restarted.
 type Plugin interface {
 	// starts any requisite background tasks for the plugin, should return immediately
-	Start()
+	Start(*resolver.Resolver)
 	// stops any running background tasks for the plugin, should return immediately
-	Stop()
+	Stop(*resolver.Resolver)
 	// returns a signal chan that's closed once the plugin has terminated
 	Done() <-chan struct{}
 }
 
-type PluginFactory func(json.RawMessage) (Plugin, error)
+type Factory func(json.RawMessage) (Plugin, error)
 
 var (
 	pluginsLock sync.Mutex
-	plugins     = map[string]PluginFactory{}
+	plugins     = map[string]Factory{}
 )
 
-func RegisterPlugin(name string, f PluginFactory) error {
+func Register(name string, f Factory) error {
 	if name == "" {
 		return fmt.Errorf("illegal plugin name")
 	}
 	if f == nil {
-		return fmt.Errorf("nil PluginFactory not allowed")
+		return fmt.Errorf("nil Factory not allowed")
 	}
 
 	pluginsLock.Lock()
 	defer pluginsLock.Unlock()
 
 	if _, found := plugins[name]; found {
-		return fmt.Errorf("PluginFactory for %q is already registered", name)
+		return fmt.Errorf("Factory for %q is already registered", name)
 	}
 
 	plugins[name] = f
 	return nil
 }
 
-func NewPlugin(name string, c *Config) (Plugin, error) {
-	raw, found := c.Plugins[name]
-	if !found {
-		return nil, fmt.Errorf("no configuration found for plugin name %q", name)
-	}
-	factory, found := func() (f PluginFactory, ok bool) {
+func New(name string, raw json.RawMessage) (Plugin, error) {
+	factory, found := func() (f Factory, ok bool) {
 		pluginsLock.Lock()
 		defer pluginsLock.Unlock()
 		f, ok = plugins[name]
 		return
 	}()
 	if !found {
-		return nil, fmt.Errorf("no PluginFactory registered for plugin name %q", name)
+		return nil, fmt.Errorf("no Factory registered for plugin name %q", name)
 	}
 	return factory(raw)
 }

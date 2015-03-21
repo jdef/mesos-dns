@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mesosphere/mesos-dns/logging"
+	"github.com/mesosphere/mesos-dns/plugins"
 	"github.com/mesosphere/mesos-dns/records"
 	"github.com/mesosphere/mesos-dns/resolver"
 
@@ -34,14 +35,14 @@ func main() {
 	logging.SetupLogs()
 
 	resolver.Config = records.SetConfig(*cjson)
-	for name := range resolver.Config.Plugins {
-		plugin, err := records.NewPlugin(name, &resolver.Config)
+	for name, config := range resolver.Config.Plugins {
+		plugin, err := plugins.New(name, config)
 		if err != nil {
 			logging.Error.Printf("failed to create plugin: %v", err)
 			continue
 		}
 		logging.Verbose.Printf("starting plugin %q", name)
-		plugin.Start()
+		plugin.Start(&resolver)
 		wg.Add(1)
 		go func() {
 			select {
