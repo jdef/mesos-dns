@@ -55,6 +55,7 @@ func (c *context) AddFilter(f plugins.Filter) {
 		panic("cannot AddFilter after initialization has completed")
 	}
 	if f != nil {
+		//TODO(jdef) wrap plugin filters to handle plugin panic()s?
 		c.filters = append(c.filters, f)
 	}
 }
@@ -117,6 +118,7 @@ func (c *context) initialize() {
 
 func (c *pluginContext) HandleHttp(pattern string, handler http.Handler) {
 	//TODO(jdef) probably need to sanitize plugin names for URL compat
+	//TODO(jdef) could also handle plugin panic()s here by wrapping the handler
 	c.context.HandleHttp(fmt.Sprintf("/plugins/%s/%s", c.pluginName, pattern), handler)
 }
 
