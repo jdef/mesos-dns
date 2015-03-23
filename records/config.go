@@ -13,6 +13,11 @@ import (
 	"github.com/miekg/dns"
 )
 
+type PluginConfig struct {
+	Name     string          `json:"name,omitempty"`
+	Settings json.RawMessage `json:"settings,omitempty"`
+}
+
 // Config holds mesos dns configuration
 type Config struct {
 
@@ -51,7 +56,7 @@ type Config struct {
 	Listener string
 
 	// allow plugins to consume their own JSON configuration
-	Plugins map[string]json.RawMessage
+	Plugins []PluginConfig
 }
 
 // SetConfig instantiates a Config struct read in from config.json

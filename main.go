@@ -44,18 +44,22 @@ func (c *context) newHandler() dns.Handler {
 
 func (c *context) initialize() {
 	c.resolver.Config = records.SetConfig(*cjson)
-	for name, config := range c.resolver.Config.Plugins {
-		plugin, err := plugins.New(name, config)
+	for _, pconfig := range c.resolver.Config.Plugins {
+		if pconfig.Name == "" {
+			logging.Error.Printf("failed to register plugin with empty name")
+			continue
+		}
+		plugin, err := plugins.New(pconfig.Name, pconfig.Settings)
 		if err != nil {
 			logging.Error.Printf("failed to create plugin: %v", err)
 			continue
 		}
-		logging.Verbose.Printf("starting plugin %q", name)
+		logging.Verbose.Printf("starting plugin %q", pconfig.Name)
 		plugin.Start(c)
 		go func() {
 			select {
 			case <-plugin.Done():
-				logging.Verbose.Printf("plugin %q terminated", name)
+				logging.Verbose.Printf("plugin %q terminated", pconfig.Name)
 			}
 		}()
 	}

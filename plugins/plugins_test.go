@@ -58,9 +58,18 @@ func TestPluginConfig(t *testing.T) {
 			},
 		}, nil
 	}))
-	json := `{"plugins":{"fake":{"Foo":123}}}`
-	conf := records.ParseConfig([]byte(json), records.Config{Masters: []string{"bar"}, Email: "a@b.c"})
-	raw, found := conf.Plugins["fake"]
+	jsonData := `{"plugins":[{"name":"fake","settings":{"Foo":123}}]}`
+	conf := records.ParseConfig([]byte(jsonData), records.Config{Masters: []string{"bar"}, Email: "a@b.c"})
+
+	var raw json.RawMessage
+	found := false
+	for _, pconfig := range conf.Plugins {
+		if pconfig.Name == "fake" {
+			found = true
+			raw = pconfig.Settings
+			break
+		}
+	}
 	if !found {
 		t.Fatalf("failed to locate fake plugin configuration")
 	}
