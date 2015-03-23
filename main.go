@@ -30,6 +30,11 @@ type context struct {
 	ready    bool // when true, indicates that initialization has completed
 }
 
+type pluginContext struct {
+	*context
+	pluginName string
+}
+
 func newContext() *context {
 	return &context{
 		httpMux: http.NewServeMux(),
@@ -58,7 +63,6 @@ func (c *context) HandleHttp(pattern string, handler http.Handler) {
 	if c.ready {
 		panic("cannot HandleHttp after initialization has completed")
 	}
-	//TODO(jdef) prepend "/plugins/" to all patterns here?
 	c.httpMux.Handle(pattern, handler)
 }
 
@@ -90,7 +94,8 @@ func (c *context) initialize() {
 			continue
 		}
 		logging.Verbose.Printf("starting plugin %q", pconfig.Name)
-		plugin.Start(c)
+		pctx := &pluginContext{pluginName: pconfig.Name, context: c}
+		plugin.Start(pctx)
 		go func() {
 			select {
 			case <-plugin.Done():
@@ -108,6 +113,11 @@ func (c *context) initialize() {
 			logging.PrintCurLog()
 		}
 	}()
+}
+
+func (c *pluginContext) HandleHttp(pattern string, handler http.Handler) {
+	//TODO(jdef) probably need to sanitize plugin names for URL compat
+	c.context.HandleHttp(fmt.Sprintf("/plugins/%s/%s", c.pluginName, pattern), handler)
 }
 
 func main() {
