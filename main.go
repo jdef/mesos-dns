@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
@@ -14,6 +15,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+const (
+	defaultHTTPListenPort = 4800
+)
+
 var (
 	cjson = flag.String("config", "config.json", "location of configuration file (json)")
 )
@@ -21,6 +26,14 @@ var (
 type context struct {
 	resolver resolver.Resolver
 	filters  plugins.FilterSet
+	httpMux  *http.ServeMux
+	ready    bool // when true, indicates that initialization has completed
+}
+
+func newContext() *context {
+	return &context{
+		httpMux: http.NewServeMux(),
+	}
 }
 
 func (c *context) Resolver() *resolver.Resolver {
@@ -33,16 +46,38 @@ func (c *context) Done() <-chan struct{} {
 }
 
 func (c *context) AddFilter(f plugins.Filter) {
+	if c.ready {
+		panic("cannot AddFilter after initialization has completed")
+	}
 	if f != nil {
 		c.filters = append(c.filters, f)
 	}
+}
+
+func (c *context) HandleHttp(pattern string, handler http.Handler) {
+	if c.ready {
+		panic("cannot HandleHttp after initialization has completed")
+	}
+	//TODO(jdef) prepend "/plugins/" to all patterns here?
+	c.httpMux.Handle(pattern, handler)
 }
 
 func (c *context) newHandler() dns.Handler {
 	return c.filters.Handler(dns.HandlerFunc(c.resolver.HandleMesos))
 }
 
+func (c *context) newHttpServer() *http.Server {
+	return &http.Server{
+		Handler:      c.httpMux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		Addr:         fmt.Sprintf(":%d", defaultHTTPListenPort),
+	}
+}
+
 func (c *context) initialize() {
+	defer func() { c.ready = true }()
+
 	c.resolver.Config = records.SetConfig(*cjson)
 	for _, pconfig := range c.resolver.Config.Plugins {
 		if pconfig.Name == "" {
@@ -76,7 +111,7 @@ func (c *context) initialize() {
 }
 
 func main() {
-	ctx := &context{}
+	ctx := newContext()
 
 	versionFlag := false
 
@@ -98,6 +133,12 @@ func main() {
 	dns.HandleFunc(ctx.resolver.Config.Domain+".", panicRecover(ch))
 	dns.HandleFunc(".", panicRecover(ch))
 
+	go func() {
+		err := ctx.newHttpServer().ListenAndServe()
+		if err != nil {
+			logging.Error.Printf("builtin HTTP service failed: %v", err)
+		}
+	}()
 	go ctx.resolver.Serve("tcp")
 	go ctx.resolver.Serve("udp")
 

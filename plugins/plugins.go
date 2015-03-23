@@ -3,6 +3,7 @@ package plugins
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/mesosphere/mesos-dns/resolver"
@@ -32,6 +33,9 @@ type Context interface {
 	// Adds a new filter handle some kind of pre- or post-processing of
 	// DNS requests and/or responses.
 	AddFilter(Filter)
+
+	// Handle registers the HTTP handler for the given pattern. If a handler already exists for pattern, Handle panics.
+	HandleHttp(pattern string, handler http.Handler)
 
 	// Return a signal chan that closes when the server enters shutdown mode.
 	Done() <-chan struct{}
