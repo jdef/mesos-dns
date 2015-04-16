@@ -124,6 +124,34 @@ func TestStripInvalid(t *testing.T) {
 
 }
 
+func Test_asDNS952Label(t *testing.T) {
+	tests := map[string]string{
+		"":                                "",
+		"a":                               "a",
+		"-":                               "",
+		"a---":                            "a",
+		"---a---":                         "a",
+		"---a---b":                        "a---b",
+		"a.b.c.d.e":                       "a-b-c-d-e",
+		"a.c.d_de.":                       "a-c-d-de",
+		"abc123":                          "abc123",
+		"4abc123":                         "abc123",
+		"-abc123":                         "abc123",
+		"abc123-":                         "abc123",
+		"abc-123":                         "abc-123",
+		"abc--123":                        "abc--123",
+		"89fdgsf---gs7-fgs--d7fddg-123":   "fdgsf---gs7-fgs--d7fddg1",
+		"89fdgsf---gs7-fgs--d7fddg---123": "fdgsf---gs7-fgs--d7fddg1",
+		"89fdgsf---gs7-fgs--d7fddg-":      "fdgsf---gs7-fgs--d7fddg",
+	}
+	for untrusted, expected := range tests {
+		actual := asDNS952Label(untrusted)
+		if actual != expected {
+			t.Fatalf("expected %q instead of %q", expected, actual)
+		}
+	}
+}
+
 // ensure we are parsing what we think we are
 func TestInsertState(t *testing.T) {
 

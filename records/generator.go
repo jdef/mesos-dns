@@ -260,6 +260,44 @@ func stripInvalid(tname string) string {
 	return strings.ToLower(strings.Replace(s, "_", "", -1))
 }
 
+const DNS952LabelFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+const DNS952LabelMaxLength int = 24
+
+var dns952LabelRegexp = regexp.MustCompile(DNS952LabelFmt)
+
+// mangle the given name to be compliant as a DNS952 name "component".
+// returns "" if the name cannot be mangled.
+func asDNS952Label(name string) (label string) {
+	name = strings.Replace(name, "_", "-", -1)
+	name = strings.Replace(name, ".", "-", -1)
+	for name != "" {
+		if m := dns952LabelRegexp.FindStringIndex(name); m == nil {
+			break
+		} else {
+			label += name[m[0]:m[1]]
+			name = name[m[1]:]
+
+		}
+	}
+	// don't allow the label to end with a hyphen, which could happen if
+	// we truncate the previously valid label
+	for x := len(label); x >= DNS952LabelMaxLength; {
+		c := label[DNS952LabelMaxLength-1]
+		if c == '-' {
+			next := label[:DNS952LabelMaxLength-1]
+			if x > DNS952LabelMaxLength {
+				next += label[DNS952LabelMaxLength:]
+			}
+			label = next
+			continue
+		} else if x > DNS952LabelMaxLength {
+			label = label[0:DNS952LabelMaxLength]
+		}
+		break
+	}
+	return
+}
+
 // InsertState transforms a StateJSON into RecordGenerator RRs
 func (rg *RecordGenerator) InsertState(sj StateJSON, domain string, mname string,
 	listener string, masters []string) error {
@@ -281,7 +319,7 @@ func (rg *RecordGenerator) InsertState(sj StateJSON, domain string, mname string
 			host, err := rg.hostBySlaveId(task.SlaveId)
 			if err == nil && (task.State == "TASK_RUNNING") {
 
-				tname := cleanName(task.Name)
+				tname := asDNS952Label(task.Name)
 				sid := slaveIdTail(task.SlaveId)
 				tail := fname + "." + domain + "."
 
@@ -298,7 +336,7 @@ func (rg *RecordGenerator) InsertState(sj StateJSON, domain string, mname string
 					// FIXME - 3 nested loops
 					for s := 0; s < len(sports); s++ {
 						//var srvhost string = tname + "." + fname + "." + domain + ":" + sports[s]
-						var srvhost string =  trec + ":" + sports[s]
+						var srvhost string = trec + ":" + sports[s]
 
 						tcp := "_" + tname + "._tcp." + tail
 						udp := "_" + tname + "._udp." + tail
