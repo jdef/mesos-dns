@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -244,23 +243,6 @@ func (rg *RecordGenerator) ParseState(config *Config) error {
 	return nil
 }
 
-// cleanName sanitizes invalid characters
-func cleanName(tname string) string {
-	return stripInvalid(tname)
-}
-
-// stripInvalid remove any non-valid hostname characters
-func stripInvalid(tname string) string {
-	reg, err := regexp.Compile("[^\\w-.\\.]")
-	if err != nil {
-		logging.Error.Println(err)
-	}
-
-	s := reg.ReplaceAllString(tname, "")
-
-	return strings.ToLower(strings.Replace(s, "_", "", -1))
-}
-
 // InsertState transforms a StateJSON into RecordGenerator RRs
 func (rg *RecordGenerator) InsertState(sj StateJSON, domain string, mname string,
 	listener string, masters []string) error {
@@ -274,7 +256,7 @@ func (rg *RecordGenerator) InsertState(sj StateJSON, domain string, mname string
 	// complete crap - refactor me
 	for i := 0; i < len(f); i++ {
 		fname := f[i].Name
-		fname = cleanName(fname)
+		fname = labels.AsDomainFrag(fname)
 
 		for x := 0; x < len(f[i].Tasks); x++ {
 			task := f[i].Tasks[x]

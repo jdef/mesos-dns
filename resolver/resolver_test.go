@@ -160,7 +160,7 @@ func TestHandler(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// test A records
-	msg, err = fakeQuery("chronos.marathon-0.6.0.mesos.", dns.TypeA, "udp")
+	msg, err = fakeQuery("chronos.marathon-0.mesos.", dns.TypeA, "udp")
 	if err != nil {
 		t.Error(err)
 	}
@@ -171,7 +171,7 @@ func TestHandler(t *testing.T) {
 
 	// Test case sensitivity -- this test depends on one above
 	msg_a := msg
-	msg, err = fakeQuery("cHrOnOs.MARATHON-0.6.0.mesoS.", dns.TypeA, "udp")
+	msg, err = fakeQuery("cHrOnOs.MARATHON-0.mesoS.", dns.TypeA, "udp")
 	if err != nil {
 		t.Error(err)
 	}
@@ -181,7 +181,7 @@ func TestHandler(t *testing.T) {
 	}
 
 	// test SRV record
-	msg, err = fakeQuery("_liquor-store._udp.marathon-0.6.0.mesos.", dns.TypeSRV, "udp")
+	msg, err = fakeQuery("_liquor-store._udp.marathon-0.mesos.", dns.TypeSRV, "udp")
 	if err != nil {
 		t.Error(err)
 	}
@@ -211,7 +211,7 @@ func TestHandler(t *testing.T) {
 	}
 
 	// test tcp
-	msg, err = fakeQuery("chronos.marathon-0.6.0.mesos.", dns.TypeA, "tcp")
+	msg, err = fakeQuery("chronos.marathon-0.mesos.", dns.TypeA, "tcp")
 	if err != nil {
 		t.Error(err)
 	}
@@ -221,7 +221,7 @@ func TestHandler(t *testing.T) {
 	}
 
 	// test AAAA --> NODATA
-	m, err = fakeMsg("chronos.marathon-0.6.0.mesos.", dns.TypeAAAA, "udp")
+	m, err = fakeMsg("chronos.marathon-0.mesos.", dns.TypeAAAA, "udp")
 	if err != nil {
 		t.Error(err)
 	}
