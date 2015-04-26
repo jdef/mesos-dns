@@ -58,6 +58,10 @@ func main() {
 	// launch Zookeeper listener
 	if config.Zk != "" {
 		newLeader, zkErr = resolver.LaunchZK(zkInitialDetectionTimeout)
+	} else {
+		leader := make(chan struct{}, 1)
+		leader <- struct{}{}
+		newLeader = leader
 	}
 
 	handleServerErr := func(name string, err error) {
@@ -89,7 +93,12 @@ func main() {
 		}
 	}()
 
-	tryReload()
+	select {
+	case <-newLeader:
+		tryReload()
+	case err := <-zkErr:
+		handleServerErr("ZK watcher", err)
+	}
 
 	for {
 		select {
